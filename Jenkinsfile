@@ -50,9 +50,17 @@ pipeline {
                 script {
                     logStartStage()
 
-                    sh """
-                    ./gradlew clean publish
-                    """
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: "NEXUS_CREDENTIALS",
+                            usernameVariable: "NEXUS_USER",
+                            passwordVariable: "NEXUS_PASSWORD"
+                        )
+                    ]) {
+                        sh """
+                          ./gradlew clean publish -PNEXUS_USER=$NEXUS_USER -PNEXUS_PASSWORD=$NEXUS_PASSWORD
+                        """
+                    }
 
                     logEndStage()
                 }
@@ -138,7 +146,7 @@ pipeline {
                         )
                     ]) {
                         sh """
-                          echo "$NEXUS_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
+                          echo "${NEXUS_PASSWORD}" | docker login -u "${NEXUS_USER}" --password-stdin
                           docker push ${REGISTRY}/${IMAGE_NAME}:${currentVersion}
                           docker push ${REGISTRY}/${IMAGE_NAME}:latest
                         """
