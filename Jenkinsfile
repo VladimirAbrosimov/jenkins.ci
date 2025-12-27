@@ -92,9 +92,11 @@ pipeline {
 
                     sshagent(credentials: ["SSH_KEY_GITHUB"]) {
                         sh """
-                          git add ${versionFile}
-                          git commit -m "chore: bump version to ${nextVersion}"
-                          git push origin master
+                        git config user.name "Jenkins CI"
+                        git config user.email "ci@jenkins.local"
+                        git add ${versionFile}
+                        git commit -m "chore: bump version to ${nextVersion}"
+                        git push origin master
                         """
                     }
 
