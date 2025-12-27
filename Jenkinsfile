@@ -16,8 +16,15 @@ def logEndStage() {
     }
 }
 
+String currentVersion
+
 pipeline {
     agent any
+
+    environment {
+        IMAGE_NAME = "vabrosimov/defi"
+        REGISTRY = "http://localhost:8081/repository/registry/"
+    }
 
     stages {
         stage("Checkout") {
@@ -28,7 +35,8 @@ pipeline {
                     sshagent(credentials: ["SSH_KEY_GITHUB"]) {
                         git(
                             url: "git@github.com:vabrosimov/defi.git",
-                            branch: "master"
+                            branch: "master",
+                            credentialsId: 'SSH_KEY_GITHUB'
                         )
                     }
 
@@ -58,7 +66,7 @@ pipeline {
 
                     String versionFile = "version.properties"
 
-                    String currentVersion = sh(
+                    currentVersion = sh(
                         script: "grep '^version=' ${versionFile} | cut -d'=' -f2",
                         returnStdout: true
                     ).trim()
@@ -89,35 +97,54 @@ pipeline {
 
         stage("Build JAR") {
             steps {
-                sh "./gradlew clean build"
+                script {
+                    logStartStage()
+
+                    sh "./gradlew clean build"
+
+                    logEndStage()
+                }
             }
         }
 
         stage("Build Docker Image") {
             steps {
-                sh """
-                  docker build \
-                    -t ${IMAGE_NAME}:${APP_VERSION} \
-                    -t ${IMAGE_NAME}:latest \
-                    .
-                """
+                script {
+                    logStartStage()
+
+                    sh """
+                      docker buildx build \
+                        --platform linux/amd64 \
+                        -t ${IMAGE_NAME}:${currentVersion} \
+                        -t ${IMAGE_NAME}:latest \
+                        .
+                    """
+
+                    logEndStage()
+                }
             }
         }
 
-        stage("Push to Docker Hub") {
+        stage("Push to registry") {
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: "DOCKERHUB_CREDENTIALS",
-                        usernameVariable: "DOCKER_USER",
-                        passwordVariable: "DOCKER_PASS"
-                    )
-                ]) {
-                    sh """
-                      echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                      docker push ${IMAGE_NAME}:${APP_VERSION}
-                      docker push ${IMAGE_NAME}:latest
-                    """
+                script {
+                    logStartStage()
+
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: "NEXUS_CREDENTIALS",
+                            usernameVariable: "NEXUS_USER",
+                            passwordVariable: "NEXUS_PASSWORD"
+                        )
+                    ]) {
+                        sh """
+                          echo "$NEXUS_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
+                          docker push ${REGISTRY}/${IMAGE_NAME}:${currentVersion}
+                          docker push ${REGISTRY}/${IMAGE_NAME}:latest
+                        """
+                    }
+
+                    logEndStage()
                 }
             }
         }
