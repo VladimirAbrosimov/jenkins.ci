@@ -23,7 +23,7 @@ pipeline {
 
     environment {
         IMAGE_NAME = "vabrosimov/defi"
-        REGISTRY = "http://localhost:8081/repository/registry/"
+        REGISTRY = "http://nexus:8082/repository/registry/"
     }
 
     stages {
@@ -123,11 +123,10 @@ pipeline {
                     logStartStage()
 
                     sh """
-                      docker buildx build \
-                        --platform linux/amd64 \
-                        -t ${IMAGE_NAME}:${currentVersion} \
-                        -t ${IMAGE_NAME}:latest \
-                        .
+                    docker build \
+                    -t ${IMAGE_NAME}:${currentVersion} \
+                    -t ${IMAGE_NAME}:latest \
+                    .
                     """
 
                     logEndStage()
@@ -147,11 +146,11 @@ pipeline {
                             passwordVariable: "NEXUS_PASSWORD"
                         )
                     ]) {
-                        sh """
-                          echo "${NEXUS_PASSWORD}" | docker login -u "${NEXUS_USER}" --password-stdin
-                          docker push ${REGISTRY}/${IMAGE_NAME}:${currentVersion}
-                          docker push ${REGISTRY}/${IMAGE_NAME}:latest
-                        """
+                        sh '''
+                        echo "${NEXUS_PASSWORD}" | docker login ${REGISTRY} -u "${NEXUS_USER}" --password-stdin
+                        docker push ${REGISTRY}${IMAGE_NAME}:${currentVersion}
+                        docker push ${REGISTRY}${IMAGE_NAME}:latest
+                        '''
                     }
 
                     logEndStage()
