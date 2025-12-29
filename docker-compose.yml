@@ -1,0 +1,58 @@
+networks:
+  infra:
+    driver: bridge
+
+services:
+  docker-dind: # dockerd
+    image: docker:dind
+    container_name: docker-dind
+    privileged: true # для работы dockerd требуется доступ к kernel хоста
+    restart: unless-stopped
+    command:
+      - dockerd
+      - --host=tcp://0.0.0.0:2375
+      - --host=unix:///var/run/docker.sock
+      - --insecure-registry=nexus:8082
+    ports:
+      - "2375:2375"
+    networks:
+      - infra
+    volumes:
+      - docker:/var/lib/docker
+
+  nexus:
+    image: sonatype/nexus3:latest
+    container_name: nexus
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+      - "8082:8082"
+    volumes:
+      - nexus-data:/nexus-data
+    networks:
+      - infra
+
+  jenkins:
+    build: # костамный jenkins-образ с предустановленным docker-cli
+      context: .
+      dockerfile: Dockerfile_jenkins
+    container_name: jenkins
+    restart: unless-stopped
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+    environment:
+      - DOCKER_HOST=tcp://docker-dind:2375
+    depends_on:
+      - docker-dind
+    networks:
+      - infra
+
+volumes:
+  jenkins_home:
+  nexus-data:
+  docker:
+  agent_workdir:
