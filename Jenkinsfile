@@ -2,7 +2,7 @@ def logStartStage() {
     ansiColor('xterm') {
         echo """
         \u001B[34m══════════════════════════════════════════════\u001B[0m
-        \u001B[36m▶▶▶ START STAGE: ${env.STAGE_NAME}\u001B[0m
+        \u001B[36m▶▶▶ START STAGE: ${STAGE_NAME}\u001B[0m
         \u001B[34m══════════════════════════════════════════════\u001B[0m
         """.stripIndent()
     }
@@ -11,7 +11,7 @@ def logStartStage() {
 def logEndStage() {
     ansiColor('xterm') {
         echo """
-        \u001B[32m✔✔✔ END STAGE: ${env.STAGE_NAME}\u001B[0m
+        \u001B[32m✔✔✔ END STAGE: ${STAGE_NAME}\u001B[0m
         """.stripIndent()
     }
 }
@@ -23,7 +23,7 @@ pipeline {
 
     environment {
         IMAGE_NAME = "vabrosimov/defi"
-        REGISTRY = "http://nexus:8082/repository/registry/"
+        REGISTRY = "nexus:8082/repository/registry/"
     }
 
     stages {
@@ -124,8 +124,8 @@ pipeline {
 
                     sh """
                     docker build \
-                    -t ${IMAGE_NAME}:${currentVersion} \
-                    -t ${IMAGE_NAME}:latest \
+                    -t ${REGISTRY}${IMAGE_NAME}:${currentVersion} \
+                    -t ${REGISTRY}${IMAGE_NAME}:latest \
                     .
                     """
 
@@ -139,8 +139,8 @@ pipeline {
                 script {
                     logStartStage()
 
-                    def imageWithVersion = "${env.REGISTRY}${env.IMAGE_NAME}:${currentVersion}"
-                    def imageLatest      = "${env.REGISTRY}${env.IMAGE_NAME}:latest"
+                    def imageWithVersion = "${REGISTRY}${IMAGE_NAME}:${currentVersion}"
+                    def imageLatest      = "${REGISTRY}${IMAGE_NAME}:latest"
 
                     withCredentials([
                         usernamePassword(
