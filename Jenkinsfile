@@ -92,6 +92,9 @@ pipeline {
 
                     sshagent(credentials: ["SSH_KEY_GITHUB"]) {
                         sh """
+                        mkdir -p ~/.ssh
+                        ssh-keyscan github.com >> ~/.ssh/known_hosts
+
                         git config user.name "Jenkins CI"
                         git config user.email "ci@jenkins.local"
                         git add ${versionFile}
