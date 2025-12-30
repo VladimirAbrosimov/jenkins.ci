@@ -127,6 +127,7 @@ pipeline {
 
                     sh """
                     docker build \
+                    --platform=linux/amd64 \
                     -t ${REGISTRY}${IMAGE_NAME}:${currentVersion} \
                     -t ${REGISTRY}${IMAGE_NAME}:latest \
                     .
