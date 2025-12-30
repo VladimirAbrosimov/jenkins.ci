@@ -46,6 +46,8 @@ services:
       - jenkins_home:/var/jenkins_home
     environment:
       - DOCKER_HOST=tcp://docker-dind:2375
+      - CASC_JENKINS_CONFIG=/var/jenkins_home/casc.yml
+      - JENKINS_ADMIN_PASSWORD=changeme
     depends_on:
       - docker-dind
     networks:
