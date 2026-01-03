@@ -23,7 +23,7 @@ pipeline {
 
     environment {
         IMAGE_NAME = "vabrosimov/defi"
-        REGISTRY = "nexus:8082/repository/registry/"
+        REGISTRY = "95.174.94.249:8082/repository/registry/"
     }
 
     stages {

@@ -12,7 +12,7 @@ services:
       - dockerd
       - --host=tcp://0.0.0.0:2375
       - --host=unix:///var/run/docker.sock
-      - --insecure-registry=nexus:8082
+      - --insecure-registry=95.174.94.249:8082
     ports:
       - "2375:2375"
     networks:
