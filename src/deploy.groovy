@@ -9,6 +9,7 @@ Application application
 List<String> applicationDescriptors = [
         "src/apps/Defi.groovy"
 ]
+boolean skipBuild = true
 
 pipeline {
     agent any
@@ -27,6 +28,7 @@ pipeline {
                     Logger.startStage(this)
 
                     application = load params.APPLICATION_DESCRIPTOR
+                    skipBuild = false
 
                     Logger.endStage(this)
                 }
@@ -51,7 +53,7 @@ pipeline {
 
         stage("Checkout") {
             when {
-                expression { params.APPLICATION_DESCRIPTOR }
+                expression { !skipBuild }
             }
             steps {
                 script {
@@ -72,7 +74,7 @@ pipeline {
 
         stage("Build & Publish") {
             when {
-                expression { params.APPLICATION_DESCRIPTOR }
+                expression { !skipBuild }
             }
             steps {
                 script {
@@ -97,7 +99,7 @@ pipeline {
 
         stage("Increment version") {
             when {
-                expression { params.APPLICATION_DESCRIPTOR }
+                expression { !skipBuild }
             }
             steps {
                 script {
@@ -114,7 +116,7 @@ pipeline {
 
         stage("Build JAR") {
             when {
-                expression { params.APPLICATION_DESCRIPTOR }
+                expression { !skipBuild }
             }
             steps {
                 script {
@@ -129,7 +131,7 @@ pipeline {
 
         stage("Build Docker Image") {
             when {
-                expression { params.APPLICATION_DESCRIPTOR }
+                expression { !skipBuild }
             }
             steps {
                 script {
@@ -150,7 +152,7 @@ pipeline {
 
         stage("Push to registry") {
             when {
-                expression { params.APPLICATION_DESCRIPTOR }
+                expression { !skipBuild }
             }
             steps {
                 script {
