@@ -1,8 +1,8 @@
 FROM jenkins/jenkins:lts
 
-# устанавливаем docker-cli
+# устанавливаем docker-cli, jq
 USER root
-RUN apt-get update && apt-get install -y docker.io
+RUN apt-get update && apt-get install -y docker.io && apt-get install -y jq
 USER jenkins
 
 # установка плагинов

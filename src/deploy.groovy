@@ -1,27 +1,16 @@
-def logStartStage() {
-    ansiColor('xterm') {
-        echo """
-        \u001B[34m══════════════════════════════════════════════\u001B[0m
-        \u001B[36m▶▶▶ START STAGE: ${STAGE_NAME}\u001B[0m
-        \u001B[34m══════════════════════════════════════════════\u001B[0m
-        """.stripIndent()
-    }
-}
+@Library('abrosimov.jenkins') _
 
-def logEndStage() {
-    ansiColor('xterm') {
-        echo """
-        \u001B[32m✔✔✔ END STAGE: ${STAGE_NAME}\u001B[0m
-        """.stripIndent()
-    }
-}
+import ru.abrosimov.jenkins.utils.Logger
+import apps.Application
 
 String currentVersion
+Application application
 
 pipeline {
     agent any
 
     environment {
+        GIT = "git@github.com:vabrosimov/defi.git"
         IMAGE_NAME = "vabrosimov/defi"
         REGISTRY = "95.174.94.249:8082/repository/registry/"
     }
@@ -30,17 +19,17 @@ pipeline {
         stage("Checkout") {
             steps {
                 script {
-                    logStartStage()
+                    Logger.startStage(this)
 
                     sshagent(credentials: ["SSH_KEY_GITHUB"]) {
                         git(
-                            url: "git@github.com:vabrosimov/defi.git",
+                            url: "${GIT}",
                             branch: "master",
                             credentialsId: 'SSH_KEY_GITHUB'
                         )
                     }
 
-                    logEndStage()
+                    Logger.endStage(this)
                 }
             }
         }
@@ -48,7 +37,7 @@ pipeline {
         stage("Build & Publish") {
             steps {
                 script {
-                    logStartStage()
+                    Logger.startStage(this)
 
                     withCredentials([
                         usernamePassword(
@@ -62,7 +51,7 @@ pipeline {
                         '''
                     }
 
-                    logEndStage()
+                    Logger.endStage(this)
                 }
             }
         }
@@ -70,7 +59,7 @@ pipeline {
         stage("Increment version") {
             steps {
                 script {
-                    logStartStage()
+                    Logger.startStage(this)
 
                     String versionFile = "version.properties"
 
@@ -92,8 +81,9 @@ pipeline {
 
                     sshagent(credentials: ["SSH_KEY_GITHUB"]) {
                         sh """
-                        mkdir -p ~/.ssh
-                        ssh-keyscan github.com >> ~/.ssh/known_hosts
+                        mkdir -p -m 700 ~/.ssh
+                        ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+                        chmod 600 ~/.ssh/known_hosts
 
                         git config user.name "Jenkins CI"
                         git config user.email "ci@jenkins.local"
@@ -103,7 +93,7 @@ pipeline {
                         """
                     }
 
-                    logEndStage()
+                    Logger.endStage(this)
                 }
             }
         }
@@ -111,11 +101,11 @@ pipeline {
         stage("Build JAR") {
             steps {
                 script {
-                    logStartStage()
+                    Logger.startStage(this)
 
                     sh "./gradlew clean build"
 
-                    logEndStage()
+                    Logger.endStage(this)
                 }
             }
         }
@@ -123,7 +113,7 @@ pipeline {
         stage("Build Docker Image") {
             steps {
                 script {
-                    logStartStage()
+                    Logger.startStage(this)
 
                     sh """
                     docker build \
@@ -133,7 +123,7 @@ pipeline {
                     .
                     """
 
-                    logEndStage()
+                    Logger.endStage(this)
                 }
             }
         }
@@ -141,7 +131,7 @@ pipeline {
         stage("Push to registry") {
             steps {
                 script {
-                    logStartStage()
+                    Logger.startStage(this)
 
                     def imageWithVersion = "${REGISTRY}${IMAGE_NAME}:${currentVersion}"
                     def imageLatest      = "${REGISTRY}${IMAGE_NAME}:latest"
@@ -168,7 +158,7 @@ pipeline {
                         }
                     }
 
-                    logEndStage()
+                    Logger.endStage(this)
                 }
             }
         }
