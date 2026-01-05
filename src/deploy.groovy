@@ -1,7 +1,8 @@
 @Library('abrosimov.jenkins') _
 
-import ru.abrosimov.jenkins.utils.Logger
-import apps.Application
+import ru.abrosimov.jenkins.ci.context.Application
+import ru.abrosimov.jenkins.ci.stages.GetAndIncrementVersion
+import ru.abrosimov.jenkins.core.Logger
 
 String currentVersion
 Application application
@@ -10,12 +11,22 @@ pipeline {
     agent any
 
     environment {
-        GIT = "git@github.com:vabrosimov/defi.git"
-        IMAGE_NAME = "vabrosimov/defi"
         REGISTRY = "95.174.94.249:8082/repository/registry/"
     }
 
     stages {
+        stage("Init pipeline") {
+            steps {
+                script {
+                    Logger.startStage(this)
+
+                    application = load params.APP_DESCRIPTOR
+
+                    Logger.endStage(this)
+                }
+            }
+        }
+
         stage("Checkout") {
             steps {
                 script {
@@ -23,7 +34,7 @@ pipeline {
 
                     sshagent(credentials: ["SSH_KEY_GITHUB"]) {
                         git(
-                            url: "${GIT}",
+                            url: "${application.git}",
                             branch: "master",
                             credentialsId: 'SSH_KEY_GITHUB'
                         )
@@ -61,37 +72,9 @@ pipeline {
                 script {
                     Logger.startStage(this)
 
-                    String versionFile = "version.properties"
+                    GetAndIncrementVersion getAndIncrementVersion = new GetAndIncrementVersion(this)
 
-                    currentVersion = sh(
-                        script: "grep '^version=' ${versionFile} | cut -d'=' -f2",
-                        returnStdout: true
-                    ).trim()
-                    echo "Current version: ${currentVersion}"
-
-                    def parts = currentVersion.tokenize('-')
-                    def nextVersion = "${parts[0]}-${parts[1].toInteger() + 1}"
-
-                    writeFile(
-                        file: versionFile,
-                        text: "version=${nextVersion}\n"
-                    )
-
-                    echo "Next version set to: ${nextVersion}"
-
-                    sshagent(credentials: ["SSH_KEY_GITHUB"]) {
-                        sh """
-                        mkdir -p -m 700 ~/.ssh
-                        ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-                        chmod 600 ~/.ssh/known_hosts
-
-                        git config user.name "Jenkins CI"
-                        git config user.email "ci@jenkins.local"
-                        git add ${versionFile}
-                        git commit -m "chore: bump version to ${nextVersion}"
-                        git push origin master
-                        """
-                    }
+                    currentVersion = getAndIncrementVersion.call()
 
                     Logger.endStage(this)
                 }
@@ -118,8 +101,8 @@ pipeline {
                     sh """
                     docker build \
                     --platform=linux/amd64 \
-                    -t ${REGISTRY}${IMAGE_NAME}:${currentVersion} \
-                    -t ${REGISTRY}${IMAGE_NAME}:latest \
+                    -t ${REGISTRY}${application.image}:${currentVersion} \
+                    -t ${REGISTRY}${application.image}:latest \
                     .
                     """
 
@@ -133,8 +116,8 @@ pipeline {
                 script {
                     Logger.startStage(this)
 
-                    def imageWithVersion = "${REGISTRY}${IMAGE_NAME}:${currentVersion}"
-                    def imageLatest      = "${REGISTRY}${IMAGE_NAME}:latest"
+                    def imageWithVersion = "${REGISTRY}${application.image}:${currentVersion}"
+                    def imageLatest      = "${REGISTRY}${application.image}:latest"
 
                     withCredentials([
                         usernamePassword(
