@@ -6,6 +6,9 @@ import ru.abrosimov.jenkins.core.Logger
 
 String currentVersion
 Application application
+List<String> applicationDescriptors = [
+        "src/apps/Defi.groovy"
+]
 
 pipeline {
     agent any
@@ -16,11 +19,30 @@ pipeline {
 
     stages {
         stage("Init pipeline") {
+            when {
+                expression { params.APPLICATION_DESCRIPTOR }
+            }
             steps {
                 script {
                     Logger.startStage(this)
 
-                    application = load params.APP_DESCRIPTOR
+                    application = load params.APPLICATION_DESCRIPTOR
+
+                    Logger.endStage(this)
+                }
+            }
+        }
+
+        stage("Configure pipeline") {
+            steps {
+                script {
+                    Logger.startStage(this)
+
+                    properties([parameters([choice(
+                            name: "APPLICATION_DESCRIPTOR",
+                            choices: applicationDescriptors,
+                            description: 'Application to build'
+                    )])])
 
                     Logger.endStage(this)
                 }
@@ -28,6 +50,9 @@ pipeline {
         }
 
         stage("Checkout") {
+            when {
+                expression { params.APPLICATION_DESCRIPTOR }
+            }
             steps {
                 script {
                     Logger.startStage(this)
@@ -46,6 +71,9 @@ pipeline {
         }
 
         stage("Build & Publish") {
+            when {
+                expression { params.APPLICATION_DESCRIPTOR }
+            }
             steps {
                 script {
                     Logger.startStage(this)
@@ -68,6 +96,9 @@ pipeline {
         }
 
         stage("Increment version") {
+            when {
+                expression { params.APPLICATION_DESCRIPTOR }
+            }
             steps {
                 script {
                     Logger.startStage(this)
@@ -82,6 +113,9 @@ pipeline {
         }
 
         stage("Build JAR") {
+            when {
+                expression { params.APPLICATION_DESCRIPTOR }
+            }
             steps {
                 script {
                     Logger.startStage(this)
@@ -94,6 +128,9 @@ pipeline {
         }
 
         stage("Build Docker Image") {
+            when {
+                expression { params.APPLICATION_DESCRIPTOR }
+            }
             steps {
                 script {
                     Logger.startStage(this)
@@ -112,6 +149,9 @@ pipeline {
         }
 
         stage("Push to registry") {
+            when {
+                expression { params.APPLICATION_DESCRIPTOR }
+            }
             steps {
                 script {
                     Logger.startStage(this)
