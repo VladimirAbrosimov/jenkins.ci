@@ -1,11 +1,15 @@
 @Library('abrosimov.jenkins') _
 
 import ru.abrosimov.jenkins.ci.context.Application
+import ru.abrosimov.jenkins.ci.context.PipelineContext
+import ru.abrosimov.jenkins.ci.stages.BuildAndPublish
+import ru.abrosimov.jenkins.ci.stages.BuildDockerImage
+import ru.abrosimov.jenkins.ci.stages.Checkout
 import ru.abrosimov.jenkins.ci.stages.GetAndIncrementVersion
+import ru.abrosimov.jenkins.ci.stages.PushToRegistry
 import ru.abrosimov.jenkins.core.Logger
 
-String currentVersion
-Application application
+PipelineContext pipelineContext
 List<String> applicationDescriptors = [
         "src/apps/Defi.groovy"
 ]
@@ -13,10 +17,6 @@ boolean skipBuild = true
 
 pipeline {
     agent any
-
-    environment {
-        REGISTRY = "95.174.94.249:8082/repository/registry/"
-    }
 
     stages {
         stage("Init pipeline") {
@@ -27,7 +27,9 @@ pipeline {
                 script {
                     Logger.startStage(this)
 
-                    application = load params.APPLICATION_DESCRIPTOR
+                    pipelineContext = load "src/PipelineContextImpl.groovy"
+                    Application application = load params.APPLICATION_DESCRIPTOR
+                    pipelineContext.setApplication(application)
                     skipBuild = false
 
                     Logger.endStage(this)
@@ -59,20 +61,15 @@ pipeline {
                 script {
                     Logger.startStage(this)
 
-                    sshagent(credentials: ["SSH_KEY_GITHUB"]) {
-                        git(
-                            url: "${application.git}",
-                            branch: "master",
-                            credentialsId: 'SSH_KEY_GITHUB'
-                        )
-                    }
+                    Checkout checkout = new Checkout(this)
+                    checkout.call(pipelineContext)
 
                     Logger.endStage(this)
                 }
             }
         }
 
-        stage("Build & Publish") {
+        stage("Build and publish") {
             when {
                 expression { !skipBuild }
             }
@@ -80,24 +77,15 @@ pipeline {
                 script {
                     Logger.startStage(this)
 
-                    withCredentials([
-                        usernamePassword(
-                            credentialsId: "NEXUS_CREDENTIALS",
-                            usernameVariable: "NEXUS_USER",
-                            passwordVariable: "NEXUS_PASSWORD"
-                        )
-                    ]) {
-                        sh '''
-                          ./gradlew clean publish -PNEXUS_USER=$NEXUS_USER -PNEXUS_PASSWORD=$NEXUS_PASSWORD
-                        '''
-                    }
+                    BuildAndPublish buildAndPublish = new BuildAndPublish(this)
+                    buildAndPublish.call()
 
                     Logger.endStage(this)
                 }
             }
         }
 
-        stage("Increment version") {
+        stage("Get and increment version") {
             when {
                 expression { !skipBuild }
             }
@@ -106,8 +94,8 @@ pipeline {
                     Logger.startStage(this)
 
                     GetAndIncrementVersion getAndIncrementVersion = new GetAndIncrementVersion(this)
-
-                    currentVersion = getAndIncrementVersion.call()
+                    String applicationVersion = getAndIncrementVersion.call()
+                    pipelineContext.application.setVersion(applicationVersion)
 
                     Logger.endStage(this)
                 }
@@ -129,7 +117,7 @@ pipeline {
             }
         }
 
-        stage("Build Docker Image") {
+        stage("Build Docker image") {
             when {
                 expression { !skipBuild }
             }
@@ -137,13 +125,8 @@ pipeline {
                 script {
                     Logger.startStage(this)
 
-                    sh """
-                    docker build \
-                    --platform=linux/amd64 \
-                    -t ${REGISTRY}${application.image}:${currentVersion} \
-                    -t ${REGISTRY}${application.image}:latest \
-                    .
-                    """
+                    BuildDockerImage buildDockerImage = new BuildDockerImage(this)
+                    buildDockerImage.call(pipelineContext)
 
                     Logger.endStage(this)
                 }
@@ -158,30 +141,8 @@ pipeline {
                 script {
                     Logger.startStage(this)
 
-                    def imageWithVersion = "${REGISTRY}${application.image}:${currentVersion}"
-                    def imageLatest      = "${REGISTRY}${application.image}:latest"
-
-                    withCredentials([
-                        usernamePassword(
-                            credentialsId: "NEXUS_CREDENTIALS",
-                            usernameVariable: "NEXUS_USER",
-                            passwordVariable: "NEXUS_PASSWORD"
-                        )
-                    ]) {
-                        withEnv([
-                            "IMAGE_WITH_VERSION=${imageWithVersion}",
-                            "IMAGE_LATEST=${imageLatest}"
-                        ]) {
-                            sh '''
-                                echo "$NEXUS_PASSWORD" | docker login "$REGISTRY" \
-                                  -u "$NEXUS_USER" \
-                                  --password-stdin
-
-                                docker push "$IMAGE_WITH_VERSION"
-                                docker push "$IMAGE_LATEST"
-                            '''
-                        }
-                    }
+                    PushToRegistry pushToRegistry = new PushToRegistry(this)
+                    pushToRegistry.call(pipelineContext)
 
                     Logger.endStage(this)
                 }
