@@ -5,7 +5,8 @@ import ru.abrosimov.jenkins.ci.context.PipelineContext
 import ru.abrosimov.jenkins.ci.stages.BuildAndPublish
 import ru.abrosimov.jenkins.ci.stages.BuildDockerImage
 import ru.abrosimov.jenkins.ci.stages.Checkout
-import ru.abrosimov.jenkins.ci.stages.GetAndIncrementVersion
+import ru.abrosimov.jenkins.ci.stages.GetVersion
+import ru.abrosimov.jenkins.ci.stages.IncrementVersion
 import ru.abrosimov.jenkins.ci.stages.PushToRegistry
 import ru.abrosimov.jenkins.core.Logger
 
@@ -69,7 +70,7 @@ pipeline {
             }
         }
 
-        stage("Build and publish") {
+        stage("Get current version") {
             when {
                 expression { !skipBuild }
             }
@@ -77,24 +78,8 @@ pipeline {
                 script {
                     Logger.startStage(this)
 
-                    BuildAndPublish buildAndPublish = new BuildAndPublish(this)
-                    buildAndPublish.call()
-
-                    Logger.endStage(this)
-                }
-            }
-        }
-
-        stage("Get and increment version") {
-            when {
-                expression { !skipBuild }
-            }
-            steps {
-                script {
-                    Logger.startStage(this)
-
-                    GetAndIncrementVersion getAndIncrementVersion = new GetAndIncrementVersion(this)
-                    String applicationVersion = getAndIncrementVersion.call()
+                    GetVersion getVersion = new GetVersion(this)
+                    String applicationVersion = getVersion.call()
                     pipelineContext.application.setVersion(applicationVersion)
 
                     Logger.endStage(this)
@@ -143,6 +128,38 @@ pipeline {
 
                     PushToRegistry pushToRegistry = new PushToRegistry(this)
                     pushToRegistry.call(pipelineContext)
+
+                    Logger.endStage(this)
+                }
+            }
+        }
+
+        stage("Build and publish") {
+            when {
+                expression { !skipBuild }
+            }
+            steps {
+                script {
+                    Logger.startStage(this)
+
+                    BuildAndPublish buildAndPublish = new BuildAndPublish(this)
+                    buildAndPublish.call()
+
+                    Logger.endStage(this)
+                }
+            }
+        }
+
+        stage("Increment version") {
+            when {
+                expression { !skipBuild }
+            }
+            steps {
+                script {
+                    Logger.startStage(this)
+
+                    IncrementVersion incrementVersion = new IncrementVersion(this)
+                    incrementVersion.call(pipelineContext)
 
                     Logger.endStage(this)
                 }
