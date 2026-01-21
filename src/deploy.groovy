@@ -81,6 +81,7 @@ pipeline {
                     GetVersion getVersion = new GetVersion(this)
                     String applicationVersion = getVersion.call()
                     pipelineContext.application.setVersion(applicationVersion)
+                    currentBuild.description = "Version: ${applicationVersion}"
 
                     Logger.endStage(this)
                 }
